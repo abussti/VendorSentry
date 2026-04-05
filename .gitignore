@@ -1,0 +1,12 @@
+.env
+*.db
+venv/
+__pycache__/
+*.pyc
+*.pyo
+reports/*.pdf
+*.egg-info/
+.DS_Store
+*.swp
+*.swo
+test_emails.json
