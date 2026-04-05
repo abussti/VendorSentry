@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VendorSentry</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+
+        .topbar {
+            background: #1a1d27;
+            border-bottom: 1px solid #2d3148;
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .topbar h1 { font-size: 18px; font-weight: 600; color: #a78bfa; letter-spacing: 0.5px; }
+        .topbar span { font-size: 12px; color: #64748b; }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 32px; }
+
+        /* Stats row */
+        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+        .stat-card {
+            background: #1a1d27;
+            border: 1px solid #2d3148;
+            border-radius: 12px;
+            padding: 20px 24px;
+        }
+        .stat-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 8px; }
+        .stat-card .value { font-size: 32px; font-weight: 700; }
+        .stat-card.purple .value { color: #a78bfa; }
+        .stat-card.red    .value { color: #f87171; }
+        .stat-card.green  .value { color: #34d399; }
+        .stat-card.amber  .value { color: #fbbf24; }
+
+        /* Scan form */
+        .scan-form {
+            background: #1a1d27;
+            border: 1px solid #2d3148;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 32px;
+        }
+        .scan-form h2 { font-size: 14px; font-weight: 600; color: #94a3b8; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; }
+        .form-row { display: flex; gap: 12px; align-items: flex-end; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+        .form-group label { font-size: 12px; color: #64748b; }
+        .form-group input {
+            background: #0f1117;
+            border: 1px solid #2d3148;
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: #e2e8f0;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus { border-color: #a78bfa; }
+        .btn-scan {
+            background: #7c3aed;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+        .btn-scan:hover { background: #6d28d9; }
+        .btn-scan:disabled { background: #374151; color: #6b7280; cursor: not-allowed; }
+
+        /* Scanning overlay */
+        .scanning-msg {
+            display: none;
+            margin-top: 14px;
+            padding: 12px 16px;
+            background: #1e1b4b;
+            border: 1px solid #4338ca;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #a5b4fc;
+        }
+
+        /* Vendor table */
+        .table-card {
+            background: #1a1d27;
+            border: 1px solid #2d3148;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .table-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid #2d3148;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .table-header h2 { font-size: 14px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+
+        .filters { display: flex; gap: 8px; }
+        .filter-btn {
+            background: #0f1117;
+            border: 1px solid #2d3148;
+            border-radius: 6px;
+            padding: 5px 12px;
+            font-size: 12px;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-btn:hover, .filter-btn.active { border-color: #a78bfa; color: #a78bfa; }
+
+        table { width: 100%; border-collapse: collapse; }
+        thead th {
+            padding: 12px 24px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #475569;
+            border-bottom: 1px solid #2d3148;
+        }
+        tbody tr {
+            border-bottom: 1px solid #1e2235;
+            transition: background 0.15s;
+            cursor: pointer;
+        }
+        tbody tr:hover { background: #1e2235; }
+        tbody tr:last-child { border-bottom: none; }
+        td { padding: 14px 24px; font-size: 14px; }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .badge-high   { background: #3f1717; color: #f87171; border: 1px solid #7f1d1d; }
+        .badge-medium { background: #3f2e00; color: #fbbf24; border: 1px solid #78350f; }
+        .badge-low    { background: #052e16; color: #34d399; border: 1px solid #064e3b; }
+
+        .score-bar-wrap { display: flex; align-items: center; gap: 10px; }
+        .score-bar-bg { flex: 1; height: 6px; background: #0f1117; border-radius: 3px; max-width: 100px; }
+        .score-bar-fill { height: 6px; border-radius: 3px; }
+
+        .alert-dot {
+            display: inline-block;
+            width: 8px; height: 8px;
+            background: #f87171;
+            border-radius: 50%;
+            margin-right: 6px;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 24px;
+            color: #475569;
+        }
+        .empty-state p { font-size: 14px; margin-top: 8px; }
+    </style>
+</head>
+<body>
+<div class="topbar">
+    <h1>⬡ VendorSentry</h1>
+    <div style="display:flex;gap:24px;">
+        <a href="/" style="color:#a78bfa;text-decoration:none;font-size:14px;">Vendor Dashboard</a>
+        <a href="/email" style="color:#64748b;text-decoration:none;font-size:14px;">Email Analyzer</a>
+    </div>
+</div>
+
+<div class="container">
+
+    <!-- Stats -->
+    <div class="stats">
+        <div class="stat-card purple">
+            <div class="label">Total Vendors</div>
+            <div class="value">{{ total_vendors }}</div>
+        </div>
+        <div class="stat-card red">
+            <div class="label">High Risk</div>
+            <div class="value">{{ high_risk }}</div>
+        </div>
+        <div class="stat-card green">
+            <div class="label">Avg Score</div>
+            <div class="value">{{ avg_score }}</div>
+        </div>
+        <div class="stat-card amber">
+            <div class="label">Active Alerts</div>
+            <div class="value">{{ alerts }}</div>
+        </div>
+    </div>
+
+    <!-- Scan form -->
+    <div class="scan-form">
+        <h2>New Vendor Assessment</h2>
+        <form action="/scan" method="POST" onsubmit="startScan(this)">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Vendor Name</label>
+                    <input type="text" name="name" placeholder="e.g. Acme Corporation" required>
+                </div>
+                <div class="form-group">
+                    <label>Domain</label>
+                    <input type="text" name="domain" placeholder="e.g. acmecorp.com (no https//:)" required>
+                </div>
+                <button type="submit" class="btn-scan" id="scan-btn">Run Assessment</button>
+            </div>
+        </form>
+        <div class="scanning-msg" id="scanning-msg">
+            ⏳ Scanning in progress — gathering threat intelligence across all sources. This may take 3–5 minutes due to AI summary generation. Please wait...
+        </div>
+    </div>
+
+    <!-- Vendor table -->
+    <div class="table-card">
+        <div class="table-header">
+            <h2>Assessed Vendors</h2>
+            <div class="filters">
+                <button class="filter-btn active" onclick="filterTable('all', this)">All</button>
+                <button class="filter-btn" onclick="filterTable('High', this)">High Risk</button>
+                <button class="filter-btn" onclick="filterTable('Medium', this)">Medium Risk</button>
+                <button class="filter-btn" onclick="filterTable('Low', this)">Low Risk</button>
+            </div>
+        </div>
+
+        {% if vendors %}
+        <table id="vendor-table">
+            <thead>
+                <tr>
+                    <th>Vendor</th>
+                    <th>Domain</th>
+                    <th>Risk Level</th>
+                    <th>Score</th>
+                    <th>Last Scanned</th>
+                    <th>Alert</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for v in vendors %}
+            <tr onclick="window.location='/vendor/{{ v.id }}'" data-risk="{{ v.risk_level }}">
+                <td><strong>{{ v.name }}</strong></td>
+                <td style="color:#64748b;">{{ v.domain }}</td>
+                <td>
+                    <span class="badge badge-{{ v.risk_level | lower if v.risk_level else 'low' }}">
+                        {{ v.risk_level or 'Unknown' }}
+                    </span>
+                </td>
+                <td>
+                    <div class="score-bar-wrap">
+                        <span>{{ v.latest_score }}/100</span>
+                        <div class="score-bar-bg">
+                            <div class="score-bar-fill" style="width:{{ v.latest_score }}%;
+                                background: {% if v.latest_score < 40 %}#f87171{% elif v.latest_score < 70 %}#fbbf24{% else %}#34d399{% endif %}">
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                <td style="color:#64748b;">{{ v.last_scanned[:10] if v.last_scanned else 'Never' }}</td>
+                <td>
+                    {% if v.alert_triggered %}
+                    <span class="alert-dot"></span><span style="color:#f87171;font-size:12px;">Score drop</span>
+                    {% else %}
+                    <span style="color:#475569;font-size:12px;">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <div style="font-size:48px;">🔍</div>
+            <p>No vendors assessed yet. Run your first assessment above.</p>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<script>
+function startScan(form) {
+    // Auto-clean domain input
+    const domainInput = form.querySelector('input[name="domain"]');
+    let domain = domainInput.value.trim().toLowerCase();
+    domain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '').split('/')[0];
+    domainInput.value = domain;
+
+    // Validate it looks like a domain
+    if (!domain.includes('.')) {
+        alert('Please enter a valid domain e.g. github.com');
+        return false;
+    }
+
+    document.getElementById('scan-btn').disabled = true;
+    document.getElementById('scan-btn').textContent = 'Scanning...';
+    document.getElementById('scanning-msg').style.display = 'block';
+}
+
+function filterTable(level, btn) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('#vendor-table tbody tr').forEach(row => {
+        row.style.display = (level === 'all' || row.dataset.risk === level) ? '' : 'none';
+    });
+}
+</script>
+</body>
+</html>
