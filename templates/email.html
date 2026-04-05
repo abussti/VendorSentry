@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Threat Analyzer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+
+        .topbar {
+            background: #1a1d27;
+            border-bottom: 1px solid #2d3148;
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .topbar h1 { font-size: 18px; font-weight: 600; color: #a78bfa; }
+        .nav { display: flex; gap: 24px; }
+        .nav a { color: #64748b; text-decoration: none; font-size: 14px; }
+        .nav a:hover, .nav a.active { color: #a78bfa; }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 32px; }
+
+        .card {
+            background: #1a1d27;
+            border: 1px solid #2d3148;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .card h2 {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #475569;
+            margin-bottom: 16px;
+        }
+
+        .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+        .form-group label { font-size: 12px; color: #64748b; }
+        .form-group input, .form-group textarea {
+            background: #0f1117;
+            border: 1px solid #2d3148;
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: #e2e8f0;
+            font-size: 14px;
+            outline: none;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus { border-color: #a78bfa; }
+        .form-group textarea { resize: vertical; min-height: 140px; }
+
+        .btn {
+            background: #7c3aed;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn:hover { background: #6d28d9; }
+        .btn:disabled { background: #374151; color: #6b7280; cursor: not-allowed; }
+
+        .scanning-msg {
+            display: none;
+            margin-top: 14px;
+            padding: 12px 16px;
+            background: #1e1b4b;
+            border: 1px solid #4338ca;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #a5b4fc;
+        }
+
+        /* Results table */
+        table { width: 100%; border-collapse: collapse; }
+        thead th {
+            padding: 10px 16px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #475569;
+            border-bottom: 1px solid #2d3148;
+        }
+        tbody tr { border-bottom: 1px solid #1e2235; }
+        tbody tr:last-child { border-bottom: none; }
+        td { padding: 12px 16px; font-size: 13px; }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .badge-high   { background: #3f1717; color: #f87171; border: 1px solid #7f1d1d; }
+        .badge-medium { background: #3f2e00; color: #fbbf24; border: 1px solid #78350f; }
+        .badge-low    { background: #052e16; color: #34d399; border: 1px solid #064e3b; }
+
+        .dual-score {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .expand-row { display: none; background: #0f1117; }
+        .expand-row.open { display: table-row; }
+        .expand-content { padding: 16px; font-size: 13px; line-height: 1.7; color: #94a3b8; }
+        .expand-content .label { color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-top: 12px; margin-bottom: 4px; }
+        .keyword-tag {
+            display: inline-block;
+            background: #3f1717;
+            color: #f87171;
+            border: 1px solid #7f1d1d;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 11px;
+            margin: 2px;
+        }
+
+        .empty-state { text-align: center; padding: 60px 24px; color: #475569; }
+        .empty-state p { font-size: 14px; margin-top: 8px; }
+
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+        .stat-card { background: #1a1d27; border: 1px solid #2d3148; border-radius: 12px; padding: 20px 24px; }
+        .stat-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 8px; }
+        .stat-card .value { font-size: 32px; font-weight: 700; }
+        .stat-card.red .value   { color: #f87171; }
+        .stat-card.amber .value { color: #fbbf24; }
+        .stat-card.purple .value { color: #a78bfa; }
+    </style>
+</head>
+<body>
+
+<div class="topbar">
+    <h1>⬡ VendorSentry</h1>
+    <div class="nav">
+        <a href="/">Vendor Dashboard</a>
+        <a href="/email" class="active">Email Analyzer</a>
+    </div>
+</div>
+
+<div class="container">
+
+    <!-- Stats -->
+    {% if analyses %}
+    <div class="stats">
+        <div class="stat-card purple">
+            <div class="label">Emails Analyzed</div>
+            <div class="value">{{ analyses | length }}</div>
+        </div>
+        <div class="stat-card red">
+            <div class="label">High Risk</div>
+            <div class="value">{{ analyses | selectattr('email_risk_level', 'equalto', 'High') | list | length }}</div>
+        </div>
+        <div class="stat-card amber">
+            <div class="label">Avg Email Score</div>
+            <div class="value">{{ (analyses | sum(attribute='email_threat_score') / analyses | length) | round(1) }}</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Input form -->
+    <div class="card">
+        <h2>Analyze Suspicious Email</h2>
+<button type="button" onclick="loadDemo()" style="
+    background:transparent;
+    border:1px solid #4338ca;
+    color:#a5b4fc;
+    border-radius:6px;
+    padding:5px 14px;
+    font-size:12px;
+    cursor:pointer;
+    margin-bottom:16px;">
+    ⚡ Load Demo Phishing Email
+</button>
+        <form action="/email/analyze" method="POST" onsubmit="startAnalysis(this)">
+            <div class="form-group">
+                <label>Sender Address</label>
+                <input type="text" name="sender" placeholder="e.g. support@suspicious-domain.com" required>
+            </div>
+            <div class="form-group">
+                <label>Subject Line</label>
+                <input type="text" name="subject" placeholder="e.g. URGENT: Your account has been suspended" required>
+            </div>
+<div class="form-group">
+    <label>Email Headers <span style="color:#475569;font-size:11px;">(optional — paste Authentication-Results block for header analysis)</span></label>
+<textarea name="raw_headers" style="min-height:80px;" placeholder="Optional — paste Authentication-Results header block here (e.g. spf=fail, dkim=none, dmarc=fail)"></textarea>
+</div>
+            <div class="form-group">
+                <label>Email Body</label>
+                <textarea name="body" placeholder="Paste the full email body here..." required></textarea>
+            </div>
+            <button type="submit" class="btn" id="analyze-btn">Analyze Email</button>
+        </form>
+        <div class="scanning-msg" id="scanning-msg">
+            ⏳ Analyzing email — running domain intelligence and generating AI summary. This takes 3–5 minutes. Please wait...
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div class="card">
+        <h2>Analysis History</h2>
+{% if analyses %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Sender</th>
+                    <th>Subject</th>
+                    <th>Email Risk</th>
+                    <th>Final Risk</th>
+                    <th>Confidence</th>
+                    <th>Report</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for a in analyses %}
+            <tr style="cursor:pointer" onclick="toggleRow({{ a.id }})">
+                <td style="color:#64748b;">{{ a.analyzed_at[:10] }}</td>
+                <td style="font-family:monospace;font-size:12px;">{{ a.sender }}</td>
+                <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ a.subject }}</td>
+                <td>
+                    <span class="badge badge-{{ a.email_risk_level | lower }}">
+                        {{ a.email_threat_score }}/100
+                    </span>
+                </td>
+                <td>
+                    <span class="badge badge-{{ a.final_risk_level | lower }}">
+                        {{ a.final_score }}/100 {{ a.final_risk_level }}
+                    </span>
+                </td>
+<td style="font-size:13px;font-weight:600;color:
+    {% if a.confidence >= 90 %}#f87171
+    {% elif a.confidence >= 75 %}#fbbf24
+    {% else %}#34d399{% endif %}">
+    {{ a.confidence }}%
+</td>
+<td onclick="event.stopPropagation()">
+                    <a href="/email/report/{{ a.id }}" style="
+                        display:inline-block;
+                        background:#7c3aed;
+                        color:white;
+                        text-decoration:none;
+                        border-radius:6px;
+                        padding:4px 12px;
+                        font-size:11px;
+                        font-weight:600;">
+                        ⬇ PDF
+                    </a>
+                </td>
+                <td style="color:#475569;font-size:12px;">▼</td>
+            </tr>
+            <tr class="expand-row" id="row-{{ a.id }}">
+                <td colspan="7">
+                    <div class="expand-content">
+
+                        {% set keywords = a.keyword_hits | from_json if a.keyword_hits else [] %}
+                        {% set urls = a.urls_found | from_json if a.urls_found else [] %}
+                        {% set factors = a.risk_factors | from_json if a.risk_factors else [] %}
+                        {% set impersonation = a.impersonation_hits | from_json if a.impersonation_hits else [] %}
+
+{% if a.verdict %}
+<div style="background:
+    {% if a.verdict_level == 'High' %}#3f1717{% elif a.verdict_level == 'Medium' %}#3f2e00{% else %}#052e16{% endif %};
+    border:1px solid
+    {% if a.verdict_level == 'High' %}#7f1d1d{% elif a.verdict_level == 'Medium' %}#78350f{% else %}#064e3b{% endif %};
+    border-radius:8px;padding:12px;margin-bottom:12px;font-size:14px;font-weight:600;">
+   <span style="color:{% if a.verdict_level == 'High' %}#f87171{% elif a.verdict_level == 'Medium' %}#fbbf24{% else %}#34d399{% endif %}">
+        🚨 VERDICT: {{ a.verdict }}
+    </span>
+</div>
+{% endif %}
+
+{% if a.verdict_reason %}
+<div style="font-size:12px;color:#94a3b8;margin-top:-8px;margin-bottom:12px;padding-left:4px;">
+    {{ a.verdict_reason }}
+</div>
+{% endif %}
+
+{% if a.threat_intel %}
+{% set intel = a.threat_intel | from_json %}
+<div class="label" style="margin-bottom:8px;">Threat Intelligence Summary</div>
+{% for item in intel %}
+<div style="padding:5px 0;border-bottom:1px solid #1e2235;font-size:12px;font-family:monospace;color:#94a3b8;">
+    — {{ item }}
+</div>
+{% endfor %}
+{% if a.domain_age_label %}
+<div style="padding:5px 0;border-bottom:1px solid #1e2235;font-size:12px;font-family:monospace;
+    color:{% if 'high' in a.domain_age_label|lower %}#f87171{% elif 'recently' in a.domain_age_label|lower %}#fbbf24{% else %}#94a3b8{% endif %};">
+    — Domain Age: {{ a.domain_age_label }}
+</div>
+{% endif %}
+<div style="margin-bottom:12px;"></div>
+{% endif %}
+
+{% if a.attack_type %}
+<div style="margin-bottom:12px;font-size:12px;color:#64748b;">
+    Attack Classification:
+    <span style="color:#a78bfa;font-weight:600;">{{ a.attack_type }}</span>
+</div>
+{% endif %}
+
+{% if a.top_drivers %}
+{% set drivers = a.top_drivers | from_json %}
+<div style="background:#1e1b4b;border:1px solid #4338ca;border-radius:8px;padding:12px;margin-bottom:12px;">
+    <div style="font-size:11px;color:#a5b4fc;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:600;">Top Risk Drivers</div>
+    {% for driver in drivers %}
+    <div style="font-size:13px;color:#e2e8f0;padding:3px 0;">
+        <span style="color:#a78bfa;font-weight:600;">{{ loop.index }}.</span> {{ driver }}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+
+
+                        <!-- Scores row -->
+                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;">
+                            <div style="background:#0f1117;border-radius:8px;padding:14px;text-align:center;">
+                                <div style="font-size:11px;color:#475569;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Email Threat</div>
+                                <div style="font-size:28px;font-weight:700;color:{% if a.email_risk_level == 'High' %}#f87171{% elif a.email_risk_level == 'Medium' %}#fbbf24{% else %}#34d399{% endif %}">{{ a.email_threat_score }}/100</div>
+                            </div>
+                            <div style="background:#0f1117;border-radius:8px;padding:14px;text-align:center;">
+                                <div style="font-size:11px;color:#475569;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Final Risk</div>
+                                <div style="font-size:28px;font-weight:700;color:{% if a.final_risk_level == 'High' %}#f87171{% elif a.final_risk_level == 'Medium' %}#fbbf24{% else %}#34d399{% endif %}">{{ a.final_score }}/100</div>
+                            </div>
+                            <div style="background:#0f1117;border-radius:8px;padding:14px;text-align:center;">
+                                <div style="font-size:11px;color:#475569;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Confidence</div>
+                                <div style="font-size:28px;font-weight:700;color:#fbbf24;">{{ a.confidence }}%</div>
+                            </div>
+                        </div>
+
+                        {% if impersonation %}
+                        <div style="background:#3f1717;border:1px solid #7f1d1d;border-radius:8px;padding:12px;margin-bottom:12px;">
+                            🚨 <strong style="color:#f87171;">Brand Impersonation Detected</strong>
+<span style="color:#fca5a5;font-size:13px;"> — domain is impersonating <strong>{{ impersonation | brand_name }}</strong></span>
+                        </div>
+                        {% endif %}
+
+                        {% if factors %}
+                        <div class="label">⚠ Risk Factors</div>
+                        {% for factor in factors %}
+                        <div style="padding:6px 0;border-bottom:1px solid #1e2235;font-size:13px;color:#cbd5e1;">
+                            — {{ factor }}
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+
+                        {% if keywords %}
+                        <div class="label" style="margin-top:12px;">Phishing Keywords</div>
+                        <div>{% for kw in keywords %}<span class="keyword-tag">{{ kw }}</span> {% endfor %}</div>
+                        {% endif %}
+
+                        {% if urls %}
+                        <div class="label" style="margin-top:12px;">URLs Found</div>
+                        <div style="font-family:monospace;font-size:12px;color:#f87171;">
+                            {% for url in urls %}🔗 {{ url }}<br>{% endfor %}
+                        </div>
+                        {% endif %}
+
+{% if a.header_spf and a.header_spf != 'Not provided' %}
+<div class="label" style="margin-top:12px;">Email Header Authentication</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
+    <div style="background:#0f1117;border-radius:6px;padding:10px;text-align:center;">
+        <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">SPF</div>
+        <div style="font-size:12px;font-weight:600;color:
+            {% if 'pass' in a.header_spf|lower %}#34d399
+            {% elif 'fail' in a.header_spf|lower %}#f87171
+            {% else %}#fbbf24{% endif %}">
+            {{ a.header_spf }}
+        </div>
+    </div>
+    <div style="background:#0f1117;border-radius:6px;padding:10px;text-align:center;">
+        <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">DKIM</div>
+        <div style="font-size:12px;font-weight:600;color:
+            {% if 'pass' in a.header_dkim|lower %}#34d399
+            {% elif 'fail' in a.header_dkim|lower %}#f87171
+            {% else %}#fbbf24{% endif %}">
+            {{ a.header_dkim }}
+        </div>
+    </div>
+    <div style="background:#0f1117;border-radius:6px;padding:10px;text-align:center;">
+        <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">DMARC</div>
+        <div style="font-size:12px;font-weight:600;color:
+            {% if 'pass' in a.header_dmarc|lower %}#34d399
+            {% elif 'fail' in a.header_dmarc|lower %}#f87171
+            {% else %}#fbbf24{% endif %}">
+            {{ a.header_dmarc }}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+                        {% if a.safe_action %}
+                        <div style="background:#052e16;border:1px solid #064e3b;border-radius:8px;padding:12px;margin-top:12px;">
+                            ✅ <strong style="color:#34d399;">Safe Alternative:</strong>
+                            <span style="color:#6ee7b7;font-size:13px;"> {{ a.safe_action }}</span>
+                        </div>
+                        {% endif %}
+
+                        <div class="label" style="margin-top:12px;">AI Summary</div>
+                        <div>{{ a.ai_summary or 'No summary available.' }}</div>
+
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <div style="font-size:48px;">📧</div>
+            <p>No emails analyzed yet. Submit a suspicious email above.</p>
+        </div>
+        {% endif %}                      
+    </div>
+
+</div>
+
+<script>
+function startAnalysis(form) {
+    document.getElementById('analyze-btn').disabled = true;
+    document.getElementById('analyze-btn').textContent = 'Analyzing...';
+    document.getElementById('scanning-msg').style.display = 'block';
+}
+
+function toggleRow(id) {
+    const row = document.getElementById('row-' + id);
+    row.classList.toggle('open');
+}
+
+function loadDemo() {
+    document.querySelector('input[name="sender"]').value  = 'support@paypal-security-update.com';
+    document.querySelector('input[name="subject"]').value = 'URGENT: Your PayPal account has been suspended - Act Now';
+    document.querySelector('textarea[name="body"]').value =
+`Dear Customer,
+
+We have detected unusual activity on your PayPal account.
+You must verify your account immediately or it will be permanently suspended.
+
+Click here to confirm your identity: http://192.168.1.1/verify
+Your password has expired. Act now to avoid losing access.
+
+This is your final notice.
+
+PayPal Security Team`;
+}
+
+</script>
+</body>
+</html>
