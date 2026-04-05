@@ -25,19 +25,19 @@ Both modules feed into a unified dashboard with PDF report generation and AI-ass
 ## Screenshots
 
 <!-- SCREENSHOT 1: Dashboard overview showing vendor list with risk badges -->
-![Dashboard](screenshots/dashboard.png)
+![Dashboard](Screenshots/dashboard.png)
 *Vendor risk dashboard with colour-coded risk levels and summary statistics*
 
 <!-- SCREENSHOT 2: Vendor detail page showing score breakdown bars and AI summary -->
-![Vendor Detail](screenshots/vendor_detail.png)
+![Vendor Detail](Screenshots/vendor_detail.png)
 *Vendor detail page with per-category score breakdown and AI executive summary*
 
 <!-- SCREENSHOT 3: Email analyzer page showing the phishing result expanded -->
-![Email Analyzer](screenshots/email_analyzer.png)
+![Email Analyzer](Screenshots/email_analyzer.png)
 *Email threat analysis showing verdict, threat intelligence summary, and top risk drivers*
 
 <!-- SCREENSHOT 4: PDF report - first page showing verdict box and score cards -->
-![PDF Report](screenshots/pdf_report.png)
+![PDF Report](Screenshots/pdf_report.png)
 *Generated PDF report suitable for management or compliance purposes*
 
 ---
